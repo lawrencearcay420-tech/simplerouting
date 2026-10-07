@@ -1,30 +1,59 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:routing/pages/sample_page.dart';
 
-import 'package:routing/main.dart';
+class MockApiClient extends http.BaseClient {
+  @override
+  Future<http.Response> get(Uri url, {Map<String, String>? headers}) async {
+    return http.Response(
+      jsonEncode([
+        {'id': 1, 'title': 'First post', 'body': 'This is the body text'},
+        {'id': 2, 'title': 'Second post', 'body': 'Another body text'},
+      ]),
+      200,
+    );
+  }
+
+  @override
+  Future<http.Response> delete(
+    Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+    Encoding? encoding,
+  }) async {
+    return http.Response('', 200);
+  }
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    return http.StreamedResponse(Stream.empty(), 200);
+  }
+}
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('Sample page loads posts and removes one when deleted', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(home: SamplePage(client: MockApiClient())),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Sample Page'), findsOneWidget);
+    expect(find.text('First post'), findsOneWidget);
+    expect(find.text('Second post'), findsOneWidget);
+    expect(find.byIcon(Icons.delete_forever), findsNWidgets(2));
+
+    await tester.tap(find.byIcon(Icons.delete_forever).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('First post'), findsNothing);
+    expect(find.byIcon(Icons.delete_forever), findsOneWidget);
   });
 }
